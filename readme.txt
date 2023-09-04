@@ -1,4 +1,4 @@
-Pegasus Tool Help
+Pegasus Tool
 This Pegasus tool was designed to help manage metadata files and assets used by the Pegasus Frontend program. It can help find missing image assets, edit genres, and convert to or from EmultionStation gamelist.xml files.
 
 Required Modules: PySimpleGUI, pygame
@@ -10,7 +10,7 @@ Backup Metadata -  Backup all metadata files to zip archive
 Check Files -  Find missing and extra files in a rom path
 Edit Genres -  Rename genres within one or more metadata files
 Export XML -  Export gamelist.xml based on metadata.pegasus.txt
-Hide Disks -  Hide multiple disk games that have a M#U playlist
+Hide Disks -  Hides multi-disc ISOs and creates M3U playlist
 Import XML -  Create Pegasus metadata based on a gamelist.xml
 Make Image Mixes -  Create collage from screenshot, box, and logo
 Options -   Edit global options and access Theme selector
@@ -82,7 +82,7 @@ If a folder is selected and an image is missing for a particular game, the selec
 
 
 Hide Disks
-Removes individual disc iso files from metadata and creates M3U playlist
+Hides multi-disc ISOs and creates M3U playlist
 
 Select a folder. All pegasus metadata files in the folder and its subfolders are scanned and the files with '(disc X)' tags in their filename will be added to the ignored files list. If there is no M3U playlist for the game it will be created.
 
