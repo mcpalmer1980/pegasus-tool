@@ -326,7 +326,7 @@ def backup_metadata_window():
     '''
     Backup all pegasus metadata files found into a zip file. 
 
-    Select a source folderselected and press ok button. All metadata.pegasus.txt
+    Select a source folder and press ok button. All metadata.pegasus.txt
     files found in the folder and its subfolders are added to a
     metadata.pegasus.?.zip file in the source folder, where ? is a date
     stamp.
@@ -1482,7 +1482,7 @@ class Options():
             'Option Edit Width': 60,
             'Theme': 'DarkGrey11',
             'Tooltips': True,
-            'Font': ('arial', 16),
+            'Font': ['arial', 16],
             'Rom Types': 'zip,chd,iso,rom',}
 
     def load(self, filename = None):

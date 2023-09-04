@@ -28,7 +28,7 @@ Save -  Save changes to metadata.pegasus.txt. A backup will be created first.
 Backup Metadata
 Backup all pegasus metadata files found into a zip file.
 
-Select a source folderselected and press ok button. All metadata.pegasus.txt files found in the folder and its subfolders are added to a metadata.pegasus.?.zip file in the source folder, where ? is a date stamp.
+Select a source folder and press ok button. All metadata.pegasus.txt files found in the folder and its subfolders are added to a metadata.pegasus.?.zip file in the source folder, where ? is a date stamp.
 
 Check Files
 Find missing and extra files in a rom path.
