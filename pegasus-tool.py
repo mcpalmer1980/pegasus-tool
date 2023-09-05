@@ -56,7 +56,7 @@ import xml.etree.cElementTree as ET
 import PySimpleGUI as sg
 from re import match
 
-
+icon = b'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAAAS7SURBVFhH1ZdtqN5zGMcPkYTGC/KG8vBCycZ9zn2ed56fz6IwvBCSNKYk0WaKUyi8mIeEF5SViGPyELGVFRbrmCK2JZRZoTwNsw37+Xz+u6+z/7nP/959W97sX5/OfX7/3++6vr/ruv6/h6bD8mlubpYj4Tg4Fc6Es+F0OAmOhqzf//KEMTgGFsIyeArehW2wHXbA1/AxvAyroAsUeWhiYiAsgKWg4e9hH6QG+BXehIvhWGhcSKWzoZyA9bAbipw0wi5YA2fBwUVEBzC3q8FZFBmtSwkugPMrv2nbBD7FIuIFnAvrYF6ow2jF4Lx3OhP/72lpSZe1taVbOjvTYLkcY2bgHJgrIhqA8VmnOcZFA/0Yuhyjffxt4f9wWIZh2q5pb0/3LF6cXurvT5+MjKQfx8fT35OT6aGenkx4xdaLcDzsd14qlcK5OdoIcxyLzheWSunajo703dhY+hzjrwwMpAdx9gjG3x4cTF+OjqbfJybSPhymKj6j/8CBKOyBK2G/AH/ACfA8zDqsDuelzPyx3t70VxhesiRzljnkd7VTcfZG4YPh4XRha2s+Chb2gnAuy2EvpFaIcN7LDNdWhTOMf0rbXd3d6X76bCcqtu0mAjv4/f7QUHq6ry/d3tWVLkF4FxPQdo6fYSicu5JthUzhnRj96iDhFN9dTzrOIy2LGLOcQnuYVNxI2yQz7cChtqyTESZjX4VUUhDcHQJWRqMhf4IwF4U0wmk01jA7CzIM5lOmY9HxG9TJN0TkTwRPMbFIaYVpnZ8CH0ZjXkCEc2NVOK2H6F8L7dxMVPZUxCtgGVGoErBBAeOwMxpV7sBHCecNDJggnNaEX4DhbMS5OOY1Zh/RM6WjuYhVeEcBU7mGDEWYV/N4EQJcSJ4kKu8RiVcx2llHhLO8jWhZJyHAlBX0fUEBLgqzjSq8iup/jsr/iE/nB3Ke/+xmaKslIOrAgouvQr7l91JS58SqxkwpYEO+MV8DYWCWGgLCcRusYubWTYyxjvyUq0Ivpn28roB/4Bei4MpnTlfiwGXX2djXv90Iuo5Zv877Xbmw7wWLt533BQIs/JMVMJ1rzAy6sGxmps8y2DXhikrlh8PYZFYg5hn6mKrfco7F/D/ORIxWgXNZAdkyPK8InZEFuIjKd7Br+NW5VdEV8KeqVTFw4drCe4vQSNVwvgVc/DIBQ+CymL10gFunK5uf4ro6m0xguLfRz9VwjPEFBRe43Lvs6zsTcCK4MWQdDPNqjMxWfh12ImyaqNzKjN0/dFxj1oEbnhvfnJ3QrdEt8kARVjmymv20thLefOgNd6/pYlwdx+JWnx3LPALkBXg4yNYDBVg8VvMXhPQtUuBhwlXR0N5EahSTF9BXu9DyeMjBfCX08UQDeEya0ZD7vlvxEA4tJEUFY6yM91GMfikPgF+Cnxlja+GxzuOdx7y5zuOJF+CzyTzqrGhWtuUFSXWfHB5oPdh6wC12Hk90AHPkEfoPKDLaCB7hLexJyG5JDT3lcjlEeInwMuGlotFjuaH20uLlxUuMl5nM3n9+YiB4rfJ6dQeshc3g9ctrmNcxr2Vez7ymeV3z2ub17dAcFz1hDI4CL56ngWk6A8ytIo+AyojD6mlq+hevylK0ZElvugAAAABJRU5ErkJggg=='
 OPT_LABEL = 20
 OPT_WIDTH = 44
 meta_filename = 'metadata.pegasus.txt'
@@ -67,15 +67,14 @@ def menu_window():
     Displays a list of tools and opens them when clicked.
     '''
     import inspect
-    for w in windows.values():
-        print(inspect.getdoc(w))
     
     tips = get_menu_tooltips()
     gw = 4 # grid width
-    print(opts['Fonts'])
     font, size = opts['Font']
-    bigfont = font, int(size*2), 'bold'
-    grid = [[sg.Text('Pegasus Tool', font=bigfont), sg.Push(), sg.Button('?', key='help')]]
+    bigfont = font, int(size*1.5), 'bold'
+    grid = [[sg.Image(icon), 
+            sg.Text('Pegasus Tool', font=bigfont), sg.Push(),
+            sg.Button('?', font=(font, size, 'bold'), key='help')]]
     values = list(windows.keys())
     size = len(max(values, key=len))
     for y in range(len(values)+1//gw):
@@ -94,9 +93,9 @@ def menu_window():
             window.close()
             break
         elif event in windows.keys():
-            subprocess.Popen(('python', __file__, event), close_fds=True)
+            launch_tool(event)
         elif event == 'help':
-            subprocess.Popen(('python', __file__, event), close_fds=True)
+            launch_tool(event)
 
 
 def help_window():
@@ -1417,7 +1416,7 @@ def option_window():
 
         elif event == 'THEME':
             print('theme')
-            subprocess.Popen(('python', __file__, 'theme'), close_fds=True)
+            launch_tool('theme')
         else:
             print(event)
 
@@ -1451,7 +1450,7 @@ class Options():
         if self.options.get('Theme'):
             sg.theme(self.options['Theme'])
         font = self.options.get('Font', ('arial', 16))
-        sg.set_options(font=font, tooltip_font=font)
+        sg.set_options(font=font, tooltip_font=font, icon=icon)
 
     def __call__(self, option):
         return self.options.get(option, None)
@@ -1863,6 +1862,13 @@ def import_xml(path, values):
 
                 print('\n', file=outp)
 
+def launch_tool(name):
+    ext = os.path.splitext(__file__)[1]
+    print(ext)
+    if getattr(sys, 'frozen', False):
+        subprocess.Popen((sys.executable, name), close_fds=True)
+    else:
+        subprocess.Popen((sys.executable, sys.argv[0], name), close_fds=True)
 
 opts = Options()
 if __name__ == '__main__':
