@@ -1855,6 +1855,17 @@ def import_xml(path, values):
 
                 print('\n', file=outp)
 
+def old_launch_tool(name):
+    ext = os.path.splitext(__file__)[1]
+    print(ext)
+    if getattr(sys, 'frozen', False):
+        subprocess.Popen((sys.executable, name), close_fds=True)
+    else:
+        subprocess.Popen((sys.executable, sys.argv[0], name), close_fds=True)
+    if name in windows:
+        p = mp.Process(target=windows[name])
+        p.start()
+        opts.save()
 
 def launch_tool(name):
     if name in windows:
@@ -1880,6 +1891,8 @@ windows.update(tools)
 
 opts = Options()
 if __name__ == '__main__':
+    if getattr(sys, 'frozen', False):
+        mp.freeze_support()
     if 'linux' in sys.platform:
         mp.set_start_method('forkserver')
     if len(sys.argv) > 1 and sys.argv[1]:
