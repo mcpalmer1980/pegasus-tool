@@ -55,6 +55,7 @@ import sys, os, json, pyperclip, tempfile, subprocess, re, inspect
 import xml.etree.cElementTree as ET
 import PySimpleGUI as sg
 from re import match
+import multiprocessing as mp
 
 icon = b'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAEnQAABJ0Ad5mH3gAAAS7SURBVFhH1ZdtqN5zGMcPkYTGC/KG8vBCycZ9zn2ed56fz6IwvBCSNKYk0WaKUyi8mIeEF5SViGPyELGVFRbrmCK2JZRZoTwNsw37+Xz+u6+z/7nP/959W97sX5/OfX7/3++6vr/ruv6/h6bD8mlubpYj4Tg4Fc6Es+F0OAmOhqzf//KEMTgGFsIyeArehW2wHXbA1/AxvAyroAsUeWhiYiAsgKWg4e9hH6QG+BXehIvhWGhcSKWzoZyA9bAbipw0wi5YA2fBwUVEBzC3q8FZFBmtSwkugPMrv2nbBD7FIuIFnAvrYF6ow2jF4Lx3OhP/72lpSZe1taVbOjvTYLkcY2bgHJgrIhqA8VmnOcZFA/0Yuhyjffxt4f9wWIZh2q5pb0/3LF6cXurvT5+MjKQfx8fT35OT6aGenkx4xdaLcDzsd14qlcK5OdoIcxyLzheWSunajo703dhY+hzjrwwMpAdx9gjG3x4cTF+OjqbfJybSPhymKj6j/8CBKOyBK2G/AH/ACfA8zDqsDuelzPyx3t70VxhesiRzljnkd7VTcfZG4YPh4XRha2s+Chb2gnAuy2EvpFaIcN7LDNdWhTOMf0rbXd3d6X76bCcqtu0mAjv4/f7QUHq6ry/d3tWVLkF4FxPQdo6fYSicu5JthUzhnRj96iDhFN9dTzrOIy2LGLOcQnuYVNxI2yQz7cChtqyTESZjX4VUUhDcHQJWRqMhf4IwF4U0wmk01jA7CzIM5lOmY9HxG9TJN0TkTwRPMbFIaYVpnZ8CH0ZjXkCEc2NVOK2H6F8L7dxMVPZUxCtgGVGoErBBAeOwMxpV7sBHCecNDJggnNaEX4DhbMS5OOY1Zh/RM6WjuYhVeEcBU7mGDEWYV/N4EQJcSJ4kKu8RiVcx2llHhLO8jWhZJyHAlBX0fUEBLgqzjSq8iup/jsr/iE/nB3Ke/+xmaKslIOrAgouvQr7l91JS58SqxkwpYEO+MV8DYWCWGgLCcRusYubWTYyxjvyUq0Ivpn28roB/4Bei4MpnTlfiwGXX2djXv90Iuo5Zv877Xbmw7wWLt533BQIs/JMVMJ1rzAy6sGxmps8y2DXhikrlh8PYZFYg5hn6mKrfco7F/D/ORIxWgXNZAdkyPK8InZEFuIjKd7Br+NW5VdEV8KeqVTFw4drCe4vQSNVwvgVc/DIBQ+CymL10gFunK5uf4ro6m0xguLfRz9VwjPEFBRe43Lvs6zsTcCK4MWQdDPNqjMxWfh12ImyaqNzKjN0/dFxj1oEbnhvfnJ3QrdEt8kARVjmymv20thLefOgNd6/pYlwdx+JWnx3LPALkBXg4yNYDBVg8VvMXhPQtUuBhwlXR0N5EahSTF9BXu9DyeMjBfCX08UQDeEya0ZD7vlvxEA4tJEUFY6yM91GMfikPgF+Cnxlja+GxzuOdx7y5zuOJF+CzyTzqrGhWtuUFSXWfHB5oPdh6wC12Hk90AHPkEfoPKDLaCB7hLexJyG5JDT3lcjlEeInwMuGlotFjuaH20uLlxUuMl5nM3n9+YiB4rfJ6dQeshc3g9ctrmNcxr2Vez7ymeV3z2ub17dAcFz1hDI4CL56ngWk6A8ytIo+AyojD6mlq+hevylK0ZElvugAAAABJRU5ErkJggg=='
 OPT_LABEL = 20
@@ -75,7 +76,7 @@ def menu_window():
     grid = [[sg.Image(icon), 
             sg.Text('Pegasus Tool', font=bigfont), sg.Push(),
             sg.Button('?', font=(font, size, 'bold'), key='help')]]
-    values = list(windows.keys())
+    values = list(tools.keys())
     size = len(max(values, key=len))
     for y in range(len(values)+1//gw):
         row = []
@@ -455,17 +456,15 @@ def check_file_window():
                 window['LIST'].update(['error: not a folder'])
         
         elif event == 'Metadata':
-            fn = os.path.join(source, meta_filename)
-            subprocess.Popen((opts['Editor'], fn), close_fds=True)
-
+            open_text_file(os.path.join(source, meta_filename))
 
         elif event == 'COPY':
             pyperclip.copy(get_file_report(info))
         elif event == 'Open':
-            fp, name = tempfile.mkstemp()
+            fp, name = tempfile.mkstemp(suffix='.txt')
             with open(name, 'w', encoding='utf8') as outp:
                 print(get_file_report(info), file=outp)
-            subprocess.Popen((opts['Editor'], name), close_fds=True)
+            open_text_file(name)
 
         elif event == 'LIST':
             if values['LIST']:
@@ -610,13 +609,11 @@ def get_metadata_exts(base):
 def launch_clicked(item, category, base):
     if 'metadata' in category:
         if category.startswith('missing in'):
-            md = os.path.join(base, meta_filename)
-            subprocess.Popen((opts['Editor'], md), close_fds=True)
+            open_text_file(os.path.join(base, meta_filename))
             launch_file(base)
 
         else:
-            md = os.path.join(base, meta_filename)
-            subprocess.Popen((opts['Editor'], md), close_fds=True)
+            open_text_file(os.path.join(base, meta_filename))
 
     elif category.startswith('extra in '):
         typ = category[9:].rsplit(':', 1)[0]
@@ -628,9 +625,14 @@ def launch_clicked(item, category, base):
             if os.path.exists(fn):
                 launch_file(fn)
 
-    elif category.startswith('missing in '):        
-        md = os.path.join(base, meta_filename)
-        subprocess.Popen((opts['Editor'], md), close_fds=True)
+    elif category.startswith('missing in '):
+        open_text_file(os.path.join(base, meta_filename))
+
+def open_text_file(fn):
+    if opts['Editor']:
+        subprocess.Popen((opts['Editor'], fn), close_fds=True)
+    else:
+        launch_file(fn)
 
 def launch_file(filename):
     platform = sys.platform
@@ -1422,10 +1424,10 @@ def update_history(path, widget=None):
         if history[0] != path:
             history.remove(path)
             history.insert(0, path)
-            opts.changed = True
+            opts.save(True)
     else:
         history.insert(0, path)
-        opts.changed = True
+        opts.save(True)
     if widget:
         widget.update(value=path, values=history)
 
@@ -1453,6 +1455,7 @@ class Options():
         if self.options[index] is not value:
             self.options[index] = value
             self.changed = True
+            self.save(True)
             #print('{} option changed to {}'.format(index, value))
         else:
             pass
@@ -1462,7 +1465,7 @@ class Options():
 
     def defaults(self):
         self.options = {
-            'Editor': 'notepad.exe',
+            'Editor': '',
             'History': [''],
             'Image Types':  'jpg,png,mp4',
             'Mix Box Size': [200,400],
@@ -1524,7 +1527,6 @@ def remove_assets():
         backup_metadatas(metadatas)
 
         for md in metadatas:
-            print(md)
             path = os.path.join(md, meta_filename)
             if not os.path.isfile(path):
                 print('cannot find', path)
@@ -1732,8 +1734,6 @@ def update_xml_images(games, path, values):
             if values[im].startswith('assets.'):
                 if values[im] in g:
                     g[im] = g[values[im]]
-                else:
-                    print('nope')
             elif values[im]:
                 for ext in opts['Image Types'].split(','):
                     fn = os.path.join(values[im], g['file']) + '.' + ext
@@ -1855,37 +1855,36 @@ def import_xml(path, values):
 
                 print('\n', file=outp)
 
+
 def launch_tool(name):
-    ext = os.path.splitext(__file__)[1]
-    print(ext)
-    if getattr(sys, 'frozen', False):
-        subprocess.Popen((sys.executable, name), close_fds=True)
-    else:
-        subprocess.Popen((sys.executable, sys.argv[0], name), close_fds=True)
+    if name in windows:
+        p = mp.Process(target=windows[name])
+        p.start()
+        opts.save()
+
+tools = {
+    'Add Assets': add_assets_window,
+    'Backup Metadata': backup_metadata_window,
+    'Check Files': check_file_window,
+    'Edit Genres': edit_genre_window,
+    'Export XML': export_xml_window,
+    'Hide Disks': hide_disks,
+    'Import XML': import_xml_window,
+    'Make Image Mixes': make_mix_window,
+    'Options': option_window,
+    'Remove Assets': remove_assets }
+windows = {
+    'help': help_window,
+    'theme': theme_window }
+windows.update(tools)
 
 opts = Options()
 if __name__ == '__main__':
-    windows = {
-        'Add Assets': add_assets_window,
-        'Backup Metadata': backup_metadata_window,
-        'Check Files': check_file_window,
-        'Edit Genres': edit_genre_window,
-        'Export XML': export_xml_window,
-        'Hide Disks': hide_disks,
-        'Import XML': import_xml_window,
-        'Make Image Mixes': make_mix_window,
-        'Options': option_window,
-        'Remove Assets': remove_assets }
-    hidden = {
-        'help': help_window,
-        'theme': theme_window }
-
+    if 'linux' in sys.platform:
+        mp.set_start_method('forkserver')
     if len(sys.argv) > 1 and sys.argv[1]:
         if sys.argv[1] in windows.keys():
             windows[sys.argv[1]]()
-            opts.save()
-        elif sys.argv[1] in hidden.keys():
-            hidden[sys.argv[1]]()
             opts.save()
     else:
         menu_window()
