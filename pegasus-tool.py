@@ -142,7 +142,8 @@ def help_window():
                 print_doc(w, doc)
         outp.set_vscroll_position(0)
 
-    layout = [[sg.Multiline('', size=(60, 15), disabled=True, 
+
+    layout = [[sg.Multiline('Loading...', size=(60, 15), disabled=True, 
                enable_events=True, key='text')],
                [sg.Combo(['...']+list(windows.keys()), default_value='Jump to...',
                          key='jump', enable_events=True, readonly=True),
@@ -151,6 +152,7 @@ def help_window():
     outp = window['text']
     bigfont = opts['Font'][0], int(opts['Font'][1] * 1.5), 'bold'
     bigcolor = sg.theme_input_background_color(), sg.theme_input_text_color()
+    window.read(20)
     print_all()
     
     while True:
@@ -284,7 +286,7 @@ def add_assets(source, values, missing=True, keep=False):
     if not os.path.isfile(source):
         source = os.path.join(source, meta_filename)
     if not os.path.isfile(source):
-        print(f'cannot find {source}')
+        print('cannot find', source)
         return
 
     backup_metadatas([os.path.split(source)[0]])
@@ -392,10 +394,21 @@ def check_file_window():
     image will delete the game's metadata from the metadata.pegasus.txt file 
 
     Other Buttons | 
+    Copy Mode | Duplicate assets and broken asset links show both the game's name and a
+    file link. This option determines what gets copied to the clipboard when such items
+    are clicked, the game, the link, or both. 
     Metadata | Open the metadata.pegaus.txt file 
     Copy | Copy the entire report into your clipboard 
     Open | Open the entire report in a text editor defined in this program's options
     '''
+    def copy_text(text):
+        if '->' in text:
+            if values['copymode'] == 'Game':
+                text = sel.split(' -> ')[0]
+            elif values['copymode'] == 'Link':
+                text = sel.split(' -> ')[1]
+        pyperclip.copy(text)
+
     source = opts['History'][0]
     boxes = ['Ignore', 'Hide', 'Launch', 'Copy', 'Cut', 'Delete']
     Buttons = ['Clip Report']
@@ -406,7 +419,9 @@ def check_file_window():
                 sg.FolderBrowse(initial_folder=source), sg.Push(), sg.Button('Scan')],
             [sg.Text('On Click:')] + [
                     sg.Radio(box, 'CLICK', key=box, enable_events=True, default=box=='Ignore')
-                    for box in boxes],
+                    for box in boxes] + 
+                    [sg.Push(), sg.Text('Copy Mode: '), 
+                        sg.Combo(['Game', 'Link', 'Both'], key='copymode', default_value='Both', readonly=True)],
             [sg.Listbox(['Select source folder and scan'],enable_events=True, size=(100, 15),
                     expand_x=True, expand_y=True, key="LIST", disabled=True)],
             [sg.Button('Metadata', disabled=True), sg.Push(), sg.Text('Full Report'),
@@ -464,10 +479,10 @@ def check_file_window():
                     window['LIST'].update(values=[sel]+info[sel])
                 elif category in info and sel in info[category]:
                     if values['Copy']:
-                        pyperclip.copy(sel)
+                        copy_text(sel)
                         window.minimize()
                     elif values['Cut']:
-                        pyperclip.copy(sel)
+                        copy_text(sel)
                         items = window['LIST'].get_list_values()
                         items.remove(sel)
                         window['LIST'].update(values=items)
@@ -543,6 +558,27 @@ def delete_clicked(item, category, base, confirm=True):
                 if sg.popup_ok_cancel('Delete file',fn, title='Confirm') == 'OK':
                     os.remove(fn)
                     return True
+    
+    elif category.startswith('broken in '):
+        key = category.split('broken in ')[1].split(':', 1)[0]
+        md = os.path.join(base, meta_filename)
+        found = False
+
+        with open(md, encoding='utf8') as inp:
+            lines = inp.readlines()
+        os.rename(md, md+'.b')
+        match = item.split(' -> ')[1]
+
+        with open(md, 'w', encoding='utf8') as outp:
+            for l in lines:
+                skip = False
+                if l.startswith(key):
+                    v = l.split(':', 1)[1].strip()
+                    if match in v:
+                        skip = found = True
+                if not skip:
+                    print(l.strip('\n'), file=outp)
+        return found
 
 def get_file_report(info):
     s = ''
@@ -631,7 +667,7 @@ def scan_files(base, image_dirs=None):
             len(files), os.path.split(base)[-1])] = None
     for typ in image_dirs:
         if not os.path.isdir(typ):
-            print(f'{typ} missing')
+            print(typ, 'missing')
             continue
 
         t = os.path.split(typ)[-1]
@@ -652,65 +688,11 @@ def scan_files(base, image_dirs=None):
     add_metadata(base, files, info)
     return info
 
-def old_scan_metadata(path, info, files):
-    path = os.path.join(path, meta_filename)
-    if not os.path.isfile(path):
-        print(f'cannot find {path}')
-        return
-
-    s = ''
-    d = {}
-    game = key = None
-    d[game] = {}
-    meta_files = []
-    file_game = {}
-    dups = []
-
-    with open(path, encoding="utf8") as file:
-        for l in file:
-            if l.startswith('game:'):
-                dup = False
-                game = l.split(':', 1)[1].strip()
-                if game in d:
-                    dup = '{} ({})'.format(game, d[game]['file'])
-                    if dup not in dups:
-                        dups.append(dup)
-                d[game] = {'game': game}
-                
-            elif l.startswith('collection:'):
-                game = None
-
-            elif ':' in l and not l.startswith(' ') and game:
-                key, value = l.split(':', 1)
-                value = value.strip(' \n')
-                key = key.strip(' \n')
-                if value.startswith('./'):
-                    value = value[2:]
-                if key == 'file':
-                    value = os.path.splitext(value)[0]
-                    meta_files.append(value)
-                    file_game[value] = game
-                    if dup:
-                        dups.append('{} ({})'.format(game, value))
-                d[game][key] = value
-
-            elif key == 'description':
-                s = l.strip(' \n') + ' '
-                if s in (' ', '. '):
-                    s = '\n'
-                d[game][key] += s
-                
-    extras = sorted([file_game[m] for m in meta_files if m not in files], key=lambda x: x.lower())
-    missing = sorted([f for f in files if f not in meta_files], key=lambda x: x.lower())
-
-    info[f'missing in metadata: {len(missing)}'] = missing
-    info[f'extra in metadata: {len(extras)}'] = extras
-    info[f'duplicates in metadata: {len(dups)}'] = dups
 
 def scan_metadata(path, return_ignored=False, strip_ext=True):
     path = os.path.join(path, meta_filename)
     if not os.path.isfile(path):
-        print(f'cannot find {path}')
+        print('cannot find', path)
         return
 
     games = []
@@ -764,12 +746,11 @@ def add_metadata(path, files, info):
     for g in games:
         name = g.get('game')
         file = g.get('file')
-        print(name)
         if name in d:
             if d[name]:
-                dups.append('{} == {}'.format(name, d[name]))
+                dups.append('{} -> {}'.format(name, d[name]))
                 d[name] = None
-            dups.append('{} == {}'.format(name, file))
+            dups.append('{} -> {}'.format(name, file))
         else:
             d[name] = file
 
@@ -777,10 +758,22 @@ def add_metadata(path, files, info):
     file_game = {i['file']: i['game'] for i in games}
     extras = sorted([file_game[m] for m in meta_files if m not in files], key=lambda x: x.lower())
     missing = sorted([f for f in files if f not in meta_files], key=lambda x: x.lower())
+    
+    broken = {}
+    for g in games:
+        for i in g:
+            if i.startswith('assets.'):
+                fn = g[i]
+                if not os.path.isfile(fn) and not os.path.isfile(os.path.join(path, fn)):
+                    if i not in broken:
+                        broken[i] = []
+                    broken[i].append('{} -> {}'.format(g['game'], g[i]))
 
-    info[f'missing in metadata: {len(missing)}'] = missing
-    info[f'extra in metadata: {len(extras)}'] = extras
-    info[f'duplicates in metadata: {len(dups)}'] = dups
+    info['missing in metadata: {}'.format(len(missing))] = missing
+    info['extra in metadata: {}'.format(len(extras))] = extras
+    info['duplicates in metadata: {}'.format(len(dups))] = dups
+    for b in broken:
+        info['broken in {}: {}'.format(b, len(broken[b]))] = broken[b]
 
 
 def edit_genre_window():
@@ -1117,7 +1110,7 @@ def hide_disks():
                         print('\n', file=outp)
                         print('ignore-files:', file=outp)
                         for i in sorted(ignore, key=lambda x: x.lower()):
-                            print(f'  {i}', file=outp)
+                            print('  '+i, file=outp)
                         print('', file=outp)
                         wrote = True
                     else:
@@ -1232,7 +1225,7 @@ def load_image(name, folder, png=False):
     elif os.path.isfile(alt_path):
         image = pg.image.load(alt_path)
     else:
-        print(f'{name} not found in {folder}')
+        print('{} not found in {}'.format(name, folder))
         return
     if image.get_bytesize() < 3:
         surface = pg.Surface(image.get_size(), depth=32)
@@ -1280,7 +1273,7 @@ def make_mix_images(base, image_dirs, overwrite):
     for i, game in enumerate(names):
         out_filename = os.path.join(out_folder, game+'.png')
         if os.path.exists(out_filename) and not overwrite:
-            print(f'{out_filename} exists: skipping')
+            print(out_filename, 'exists: skipping')
             continue
 
         max_length = 60
@@ -1288,7 +1281,7 @@ def make_mix_images(base, image_dirs, overwrite):
                 'Building file for {}'.format(game),
                 orientation='h', no_titlebar=False, size = (max_length, 3), grab_anywhere=False,
                 bar_color=('white', 'red'), keep_on_top=False, key=1):
-            print(f'Canceled build')
+            print('Canceled build')
             return
 
         out_surface = pg.surface.Surface(image_rect.size, pg.SRCALPHA)
@@ -1534,7 +1527,7 @@ def remove_assets():
             print(md)
             path = os.path.join(md, meta_filename)
             if not os.path.isfile(path):
-                print(f'cannot find {path}')
+                print('cannot find', path)
                 continue
 
             with open(path, encoding='utf8') as inp:
@@ -1713,10 +1706,10 @@ def theme_window(theme=None):
             opts['Font'] = (font, new_size)
             opts['Tooltips'] = values['tooltips']
             if new_size != size:
-                print(f'Size changed to {new_size}')
+                print('Size changed to', new_size)
             if theme and theme[0] in themes:
                 theme = theme[0]
-                print(f'Theme changed to {theme}')
+                print('Theme changed to', theme)
                 opts['Theme'] = theme
             window.close()
             break
